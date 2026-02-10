@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>Assistive Communication Board</title>
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --card: #ffffff;
+      --primary: #2563eb;
+      --accent: #16a34a;
+      --danger: #dc2626;
+      --text: #111827;
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    body.high-contrast {
+      background: #000;
+      color: #fff;
+    }
+
+    header {
+      padding: 14px;
+      text-align: center;
+      font-size: 1.4rem;
+      font-weight: 700;
+      background: white;
+      border-bottom: 1px solid #e5e7eb;
+    }
+
+    body.high-contrast header {
+      background: #000;
+      color: #fff;
+      border-bottom: 2px solid #fff;
+    }
+
+    nav {
+      display: flex;
+      justify-content: space-around;
+      background: white;
+      border-bottom: 1px solid #e5e7eb;
+    }
+
+    nav button {
+      flex: 1;
+      padding: 14px 6px;
+      font-size: 1rem;
+      border: none;
+      background: none;
+      font-weight: 600;
+    }
+
+    nav button.active {
+      color: var(--primary);
+      border-bottom: 4px solid var(--primary);
+    }
+
+    body.high-contrast nav button.active {
+      color: var(--primary);
+    }
+
+    .page {
+      display: none;
+    }
+
+    .page.active {
+      display: block;
+    }
+
+    .board {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      padding: 16px;
+    }
+
+    .card {
+      background: var(--card);
+      border-radius: 20px;
+      padding: 20px 10px;
+      text-align: center;
+      font-size: 1.2rem;
+      font-weight: 600;
+      box-shadow: 0 6px 16px rgba(0,0,0,0.08);
+      cursor: pointer;
+      user-select: none;
+      transition: transform 0.1s ease, box-shadow 0.1s ease;
+    }
+
+    .card:active {
+      transform: scale(0.96);
+      box-shadow: 0 3px 8px rgba(0,0,0,0.15);
+    }
+
+    .yes { background: #dcfce7; color: var(--accent); }
+    .no { background: #fee2e2; color: var(--danger); }
+    .need { background: #e0e7ff; }
+    .feeling { background: #fff7ed; }
+    .pain { background: #fde2e2; }
+    .person { background: #ecfeff; }
+
+    body.high-contrast .card {
+      background: #000;
+      color: #fff;
+      border: 3px solid #fff;
+      box-shadow: none;
+    }
+
+    footer {
+      position: fixed;
+      bottom: 0;
+      width: 100%;
+      background: white;
+      border-top: 1px solid #e5e7eb;
+      padding: 12px;
+      text-align: center;
+    }
+
+    #output {
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: var(--primary);
+    }
+
+    footer button {
+      margin-top: 8px;
+      padding: 10px 18px;
+      font-size: 1rem;
+      border-radius: 14px;
+      border: none;
+      background: var(--primary);
+      color: white;
+    }
+
+    .setting {
+      font-size: 1.1rem;
+      padding: 12px 16px;
+    }
+  </style>
+</head>
+<body>
+
+<header>💬 Assistive Communication Board</header>
+<nav>
+  <button onclick="showPage('settings', this)">⚙️ Admin</button>
+</nav>
+<nav id="navSectionButtons">
+  <button onclick="showPage('settings', this)">⚙️ Admin</button>
+</nav>
+
+<!-- NEEDS -->
+<section id="needs" class="page active">
+  <div class="board">
+  </div>
+</section>
+
+<!-- FEELINGS -->
+<section id="feelings" class="page">
+  <div class="board">
+  </div>
+</section>
+
+<!-- PAIN -->
+<section id="pain" class="page">
+  <div class="board">
+  </div>
+</section>
+
+<!-- PEOPLE -->
+<!-- ACTIVITIES -->
+<section id="activities" class="page">
+  <div class="board"></div>
+</section>
+<section id="people" class="page">
+  <div class="board">
+  </div>
+</section>
+
+<!-- ADMIN SETTINGS -->
+<section id="settings" class="page">
+  <div class="setting">
+    <label><input type="checkbox" onchange="toggleHighContrast(this.checked)"> High contrast mode</label>
+  </div>
+  <div class="setting">
+    <label><input type="checkbox" onchange="toggleShowAll(this.checked)"> Show all buttons on one page</label>
+  </div>
+  <div class="setting">
+    <label for="menuLangSelect">Menu Language:</label>
+    <select id="menuLangSelect">
+      <option value="en" selected>English</option>
+      <option value="zh-CN">Mandarin Chinese</option>
+      <option value="zh-HK">Cantonese Chinese</option>
+    </select>
+  </div>
+  <div class="setting">
+    <label for="voiceLangSelect">Voice Language:</label>
+    <select id="voiceLangSelect">
+      <option value="en" selected>English</option>
+      <option value="zh-CN">Mandarin Chinese</option>
+      <option value="zh-HK">Cantonese Chinese</option>
+    </select>
+  </div>
+</section>
+
+<footer>
+  <div id="output">Tap a card</div>
+  <button onclick="clearOutput()">Clear</button>
+</footer>
+
+<script>
+  let isEditMode = false;
+  let showAll = false;
+  let menuLang = 'en';
+  let voiceLang = 'en';
+
+  // Multi-language map
+  const langMap = {
+  "en": {
+    sectionNames: {
+      needs: 'Needs',
+      feelings: 'Feelings',
+      pain: 'Pain',
+      people: 'People',
+      activities: 'Daily Routine'
+    },
+    "needs": [
+      {"phraseid": "yes", "emoji": "✅", "label": "Yes", "speak": "Yes"},
+      {"phraseid": "no", "emoji": "❌", "label": "No", "speak": "No"},
+      {"phraseid": "stop", "emoji": "🛑", "label": "Stop", "speak": "Stop"},
+      {"phraseid": "wait", "emoji": "⏳", "label": "Wait", "speak": "Please wait"},
+      {"phraseid": "please", "emoji": "🙏", "label": "Please", "speak": "Please"},
+      {"phraseid": "drink", "emoji": "💧", "label": "Drink", "speak": "I need water"},
+      {"phraseid": "food", "emoji": "🍽️", "label": "Food", "speak": "I need food"},
+      {"phraseid": "toilet", "emoji": "🚽", "label": "Toilet", "speak": "I need the toilet"},
+      {"phraseid": "rest", "emoji": "🛏️", "label": "Rest", "speak": "I need rest"},
+      {"phraseid": "cold", "emoji": "🧥", "label": "Cold", "speak": "I am cold"},
+      {"phraseid": "hot", "emoji": "☀️", "label": "Hot", "speak": "I am hot"},
+      {"phraseid": "situp", "emoji": "🧍", "label": "Sit up", "speak": "I want to sit up"},
+      {"phraseid": "liedown", "emoji": "🛌", "label": "Lie down", "speak": "I want to lie down"},
+      {"phraseid": "medication", "emoji": "💊", "label": "Medication", "speak": "I need medication"},
+      {"phraseid": "brushteeth", "emoji": "🪥", "label": "Brush teeth", "speak": "I want to brush my teeth"},
+      {"phraseid": "washhands", "emoji": "🧼", "label": "Wash hands", "speak": "I want to wash my hands"},
+      {"phraseid": "lotion", "emoji": "🧴", "label": "Lotion / Skin care", "speak": "I want lotion or skin care"}
+    ],
+    "feelings": [
+      {"phraseid": "ok", "emoji": "🙂", "label": "OK", "speak": "I feel OK"},
+      {"phraseid": "tired", "emoji": "😴", "label": "Tired", "speak": "I feel tired"},
+      {"phraseid": "sad", "emoji": "😞", "label": "Sad", "speak": "I feel sad"},
+      {"phraseid": "anxious", "emoji": "😟", "label": "Anxious", "speak": "I feel anxious"},
+      {"phraseid": "frustrated", "emoji": "😠", "label": "Frustrated", "speak": "I feel frustrated"},
+      {"phraseid": "comfort", "emoji": "🫂", "label": "Comfort", "speak": "I need comfort"}
+    ],
+    "pain": [
+      {"phraseid": "pain", "emoji": "😣", "label": "Pain", "speak": "I am in pain"},
+      {"phraseid": "head", "emoji": "🧠", "label": "Head", "speak": "My head hurts"},
+      {"phraseid": "chest", "emoji": "❤️", "label": "Chest", "speak": "My chest hurts"},
+      {"phraseid": "arm", "emoji": "💪", "label": "Arm", "speak": "My arm hurts"},
+      {"phraseid": "leg", "emoji": "🦵", "label": "Leg", "speak": "My leg hurts"},
+      {"phraseid": "stomach", "emoji": "🤢", "label": "Stomach", "speak": "My stomach hurts"},
+      {"phraseid": "pain0", "emoji": "🔢", "label": "Pain: 0", "speak": "My pain is 0"},
+      {"phraseid": "pain1", "emoji": "🔢", "label": "Pain: 1", "speak": "My pain is 1"},
+      {"phraseid": "pain2", "emoji": "🔢", "label": "Pain: 2", "speak": "My pain is 2"},
+      {"phraseid": "pain3", "emoji": "🔢", "label": "Pain: 3", "speak": "My pain is 3"},
+      {"phraseid": "pain4", "emoji": "🔢", "label": "Pain: 4", "speak": "My pain is 4"},
+      {"phraseid": "pain5", "emoji": "🔢", "label": "Pain: 5", "speak": "My pain is 5"},
+      {"phraseid": "pain6", "emoji": "🔢", "label": "Pain: 6", "speak": "My pain is 6"},
+      {"phraseid": "pain7", "emoji": "🔢", "label": "Pain: 7", "speak": "My pain is 7"},
+      {"phraseid": "pain8", "emoji": "🔢", "label": "Pain: 8", "speak": "My pain is 8"},
+      {"phraseid": "pain9", "emoji": "🔢", "label": "Pain: 9", "speak": "My pain is 9"},
+      {"phraseid": "pain10", "emoji": "🔢", "label": "Pain: 10", "speak": "My pain is 10"}
+    ],
+    "people": [
+      {"phraseid": "you", "emoji": "👉", "label": "You", "speak": "I want you"},
+      {"phraseid": "family", "emoji": "👨‍👩‍👧‍👦", "label": "Family", "speak": "I want my family"},
+      {"phraseid": "nurse", "emoji": "👩‍⚕️", "label": "Nurse", "speak": "I want a nurse"},
+      {"phraseid": "doctor", "emoji": "👨‍⚕️", "label": "Doctor", "speak": "I want a doctor"},
+      {"phraseid": "friend", "emoji": "🧑‍🤝‍🧑", "label": "Friend", "speak": "I want my friend"}
+    ],
+    "activities": [
+      {"phraseid": "sleep", "emoji": "🛏️", "label": "Sleep", "speak": "I want to sleep"},
+      {"phraseid": "eat", "emoji": "🍽️", "label": "Eat", "speak": "I want to eat"},
+      {"phraseid": "walk", "emoji": "🚶", "label": "Walk / Exercise", "speak": "I want to walk or exercise"},
+      {"phraseid": "tv", "emoji": "📺", "label": "Watch TV / Entertainment", "speak": "I want to watch TV"},
+      {"phraseid": "read", "emoji": "📖", "label": "Read", "speak": "I want to read"}
+    ]
+  },
+  "zh-CN": {
+    sectionNames: {
+      needs: '需求',
+      feelings: '感受',
+      pain: '疼痛',
+      people: '人物',
+      activities: '日常'
+    },
+    "needs": [
+      {"phraseid": "yes", "emoji": "✅", "label": "是", "speak": "是"},
+      {"phraseid": "no", "emoji": "❌", "label": "否", "speak": "否"},
+      {"phraseid": "stop", "emoji": "🛑", "label": "停止", "speak": "停止"},
+      {"phraseid": "wait", "emoji": "⏳", "label": "等待", "speak": "请等待"},
+      {"phraseid": "please", "emoji": "🙏", "label": "请", "speak": "请"},
+      {"phraseid": "drink", "emoji": "💧", "label": "喝水", "speak": "我要喝水"},
+      {"phraseid": "food", "emoji": "🍽️", "label": "吃饭", "speak": "我要吃饭"},
+      {"phraseid": "toilet", "emoji": "🚽", "label": "厕所", "speak": "我要去廁所"},
+      {"phraseid": "rest", "emoji": "🛏️", "label": "休息", "speak": "我要休息"},
+      {"phraseid": "cold", "emoji": "🧥", "label": "冷", "speak": "我觉得冷"},
+      {"phraseid": "hot", "emoji": "☀️", "label": "热", "speak": "我觉得热"},
+      {"phraseid": "situp", "emoji": "🧍", "label": "坐起身", "speak": "我要坐起身"},
+      {"phraseid": "liedown", "emoji": "🛌", "label": "躺低", "speak": "我要躺低"},
+      {"phraseid": "medication", "emoji": "💊", "label": "药物", "speak": "我要吃药"},
+      {"phraseid": "brushteeth", "emoji": "🪥", "label": "刷牙", "speak": "我要刷牙"},
+      {"phraseid": "washhands", "emoji": "🧼", "label": "洗手", "speak": "我要洗手"},
+      {"phraseid": "lotion", "emoji": "🧴", "label": "护肤", "speak": "我要护肤"}
+    ],
+    "feelings": [
+      {"phraseid": "ok", "emoji": "🙂", "label": "好", "speak": "我感觉很好"},
+      {"phraseid": "tired", "emoji": "😴", "label": "累", "speak": "我感觉很累"},
+      {"phraseid": "sad", "emoji": "😞", "label": "难过", "speak": "我感觉难过"},
+      {"phraseid": "anxious", "emoji": "😟", "label": "焦虑", "speak": "我感觉焦虑"},
+      {"phraseid": "frustrated", "emoji": "😠", "label": "沮丧", "speak": "我感觉沮丧"},
+      {"phraseid": "comfort", "emoji": "🫂", "label": "安慰", "speak": "我需要安慰"}
+    ],
+    "pain": [
+      {"phraseid": "pain", "emoji": "😣", "label": "疼痛", "speak": "我很疼"},
+      {"phraseid": "head", "emoji": "🧠", "label": "头", "speak": "我的头很疼"},
+      {"phraseid": "chest", "emoji": "❤️", "label": "胸", "speak": "我的胸很疼"},
+      {"phraseid": "arm", "emoji": "💪", "label": "手臂", "speak": "我的手臂很疼"},
+      {"phraseid": "leg", "emoji": "🦵", "label": "腿", "speak": "我的腿很疼"},
+      {"phraseid": "stomach", "emoji": "🤢", "label": "肚子", "speak": "我的肚子很疼"},
+      {"phraseid": "pain0", "emoji": "🔢", "label": "疼痛: 0", "speak": "我的疼痛是0"},
+      {"phraseid": "pain1", "emoji": "🔢", "label": "疼痛: 1", "speak": "我的疼痛是1"},
+      {"phraseid": "pain2", "emoji": "🔢", "label": "疼痛: 2", "speak": "我的疼痛是2"},
+      {"phraseid": "pain3", "emoji": "🔢", "label": "疼痛: 3", "speak": "我的疼痛是3"},
+      {"phraseid": "pain4", "emoji": "🔢", "label": "疼痛: 4", "speak": "我的疼痛是4"},
+      {"phraseid": "pain5", "emoji": "🔢", "label": "疼痛: 5", "speak": "我的疼痛是5"},
+      {"phraseid": "pain6", "emoji": "🔢", "label": "疼痛: 6", "speak": "我的疼痛是6"},
+      {"phraseid": "pain7", "emoji": "🔢", "label": "疼痛: 7", "speak": "我的疼痛是7"},
+      {"phraseid": "pain8", "emoji": "🔢", "label": "疼痛: 8", "speak": "我的疼痛是8"},
+      {"phraseid": "pain9", "emoji": "🔢", "label": "疼痛: 9", "speak": "我的疼痛是9"},
+      {"phraseid": "pain10", "emoji": "🔢", "label": "疼痛: 10", "speak": "我的疼痛是10"}
+    ],
+    "people": [
+      {"phraseid": "you", "emoji": "👉", "label": "你", "speak": "我要你"},
+      {"phraseid": "family", "emoji": "👨‍👩‍👧‍👦", "label": "家人", "speak": "我要家人"},
+      {"phraseid": "nurse", "emoji": "👩‍⚕️", "label": "护士", "speak": "我要护士"},
+      {"phraseid": "doctor", "emoji": "👨‍⚕️", "label": "医生", "speak": "我要医生"},
+      {"phraseid": "friend", "emoji": "🧑‍🤝‍🧑", "label": "朋友", "speak": "我要朋友"}
+    ],
+    "activities": [
+      {"phraseid": "sleep", "emoji": "🛏️", "label": "睡觉", "speak": "我要睡觉"},
+      {"phraseid": "eat", "emoji": "🍽️", "label": "吃饭", "speak": "我要吃饭"},
+      {"phraseid": "walk", "emoji": "🚶", "label": "散步 / 运动", "speak": "我要散步或运动"},
+      {"phraseid": "tv", "emoji": "📺", "label": "看电视", "speak": "我要看电视"},
+      {"phraseid": "read", "emoji": "📖", "label": "阅读", "speak": "我要阅读"}
+    ]
+  },
+  "zh-HK": {
+     sectionNames: {
+      needs: '需要',
+      feelings: '感覺',
+      pain: '痛楚',
+      people: '人物',
+      activities: '日常'
+    },
+    "needs": [
+      {"phraseid": "yes", "emoji": "✅", "label": "係", "speak": "係"},
+      {"phraseid": "no", "emoji": "❌", "label": "唔係", "speak": "唔係"},
+      {"phraseid": "stop", "emoji": "🛑", "label": "停", "speak": "停"},
+      {"phraseid": "wait", "emoji": "⏳", "label": "等", "speak": "請等"},
+      {"phraseid": "please", "emoji": "🙏", "label": "請", "speak": "請"},
+      {"phraseid": "drink", "emoji": "💧", "label": "飲水", "speak": "我要飲水"},
+      {"phraseid": "food", "emoji": "🍽️", "label": "食飯", "speak": "我要食飯"},
+      {"phraseid": "toilet", "emoji": "🚽", "label": "廁所", "speak": "我要去廁所"},
+      {"phraseid": "rest", "emoji": "🛏️", "label": "休息", "speak": "我要休息"},
+      {"phraseid": "cold", "emoji": "🧥", "label": "凍", "speak": "我覺得凍"},
+      {"phraseid": "hot", "emoji": "☀️", "label": "熱", "speak": "我覺得熱"},
+      {"phraseid": "situp", "emoji": "🧍", "label": "坐起身", "speak": "我要坐起身"},
+      {"phraseid": "liedown", "emoji": "🛌", "label": "躺低", "speak": "我要躺低"},
+      {"phraseid": "medication", "emoji": "💊", "label": "藥物", "speak": "我要食藥"},
+      {"phraseid": "brushteeth", "emoji": "🪥", "label": "刷牙", "speak": "我要刷牙"},
+      {"phraseid": "washhands", "emoji": "🧼", "label": "洗手", "speak": "我要洗手"},
+      {"phraseid": "lotion", "emoji": "🧴", "label": "護膚", "speak": "我要護膚"}
+    ],
+    "feelings": [
+      {"phraseid": "ok", "emoji": "🙂", "label": "好", "speak": "我覺得好"},
+      {"phraseid": "tired", "emoji": "😴", "label": "攰", "speak": "我覺得攰"},
+      {"phraseid": "sad", "emoji": "😞", "label": "傷心", "speak": "我覺得傷心"},
+      {"phraseid": "anxious", "emoji": "😟", "label": "擔心", "speak": "我覺得擔心"},
+      {"phraseid": "frustrated", "emoji": "😠", "label": "沮喪", "speak": "我覺得沮喪"},
+      {"phraseid": "comfort", "emoji": "🫂", "label": "安慰", "speak": "我需要安慰"}
+    ],
+    "pain": [
+      {"phraseid": "pain", "emoji": "😣", "label": "痛", "speak": "我好痛"},
+      {"phraseid": "head", "emoji": "🧠", "label": "頭", "speak": "我個頭好痛"},
+      {"phraseid": "chest", "emoji": "❤️", "label": "胸", "speak": "我個胸好痛"},
+      {"phraseid": "arm", "emoji": "💪", "label": "手臂", "speak": "我隻手臂好痛"},
+      {"phraseid": "leg", "emoji": "🦵", "label": "腳", "speak": "我隻腳好痛"},
+      {"phraseid": "stomach", "emoji": "🤢", "label": "肚", "speak": "我個肚好痛"},
+      {"phraseid": "pain0", "emoji": "🔢", "label": "痛楚: 0", "speak": "我嘅痛楚係0"},
+      {"phraseid": "pain1", "emoji": "🔢", "label": "痛楚: 1", "speak": "我嘅痛楚係1"},
+      {"phraseid": "pain2", "emoji": "🔢", "label": "痛楚: 2", "speak": "我嘅痛楚係2"},
+      {"phraseid": "pain3", "emoji": "🔢", "label": "痛楚: 3", "speak": "我嘅痛楚係3"},
+      {"phraseid": "pain4", "emoji": "🔢", "label": "痛楚: 4", "speak": "我嘅痛楚係4"},
+      {"phraseid": "pain5", "emoji": "🔢", "label": "痛楚: 5", "speak": "我嘅痛楚係5"},
+      {"phraseid": "pain6", "emoji": "🔢", "label": "痛楚: 6", "speak": "我嘅痛楚係6"},
+      {"phraseid": "pain7", "emoji": "🔢", "label": "痛楚: 7", "speak": "我嘅痛楚係7"},
+      {"phraseid": "pain8", "emoji": "🔢", "label": "痛楚: 8", "speak": "我嘅痛楚係8"},
+      {"phraseid": "pain9", "emoji": "🔢", "label": "痛楚: 9", "speak": "我嘅痛楚係9"},
+      {"phraseid": "pain10", "emoji": "🔢", "label": "痛楚: 10", "speak": "我嘅痛楚係10"}
+    ],
+    "people": [
+      {"phraseid": "you", "emoji": "👉", "label": "你", "speak": "我要你"},
+      {"phraseid": "family", "emoji": "👨‍👩‍👧‍👦", "label": "家人", "speak": "我要家人"},
+      {"phraseid": "nurse", "emoji": "👩‍⚕️", "label": "護士", "speak": "我要護士"},
+      {"phraseid": "doctor", "emoji": "👨‍⚕️", "label": "醫生", "speak": "我要醫生"},
+      {"phraseid": "friend", "emoji": "🧑‍🤝‍🧑", "label": "朋友", "speak": "我要朋友"}
+    ],
+    "activities": [
+      {"phraseid": "sleep", "emoji": "🛏️", "label": "瞓覺", "speak": "我要瞓覺"},
+      {"phraseid": "eat", "emoji": "🍽️", "label": "食飯", "speak": "我要食飯"},
+      {"phraseid": "walk", "emoji": "🚶", "label": "散步 / 運動", "speak": "我要散步或運動"},
+      {"phraseid": "tv", "emoji": "📺", "label": "睇電視", "speak": "我要睇電視"},
+      {"phraseid": "read", "emoji": "📖", "label": "閱讀", "speak": "我要閱讀"}
+    ]
+  }
+};
+
+  function renderBoard() {
+    renderNavSectionButtons();
+    ['needs', 'feelings', 'pain', 'people', 'activities'].forEach(section => {
+      const board = document.querySelector(`#${section} .board`);
+      board.innerHTML = '';
+      langMap[menuLang][section].forEach((item, idx) => {
+        const card = document.createElement('div');
+        let cardClass = `card ${section === 'needs' && (idx === 0 ? 'yes' : idx === 1 ? 'no' : 'need') || section}`;
+        if (section === 'pain' && item.emoji === '🔢') {
+          const percent = parseInt(item.label.replace(/\D/g, '')) / 10;
+          const color = painScaleColor(percent);
+          card.style.background = color;
+          card.style.color = '#000';
+        }
+        card.className = cardClass;
+        card.innerHTML = `<span class="emoji">${item.emoji}</span>${item.label}`;
+        card.setAttribute('data-phraseid', item.phraseid);
+        card.setAttribute('onclick', `select('${item.speak}', this, '${item.phraseid}', '${section}')`);
+        board.appendChild(card);
+      });
+    });
+
+    function painScaleColor(percent) {
+      const r = percent < 0.5 ? Math.round(255 * (percent * 2)) : 255;
+      const g = percent < 0.5 ? 255 : Math.round(255 * (1 - (percent - 0.5) * 2));
+      return `rgb(${r},${g},64)`;
+    }
+  }
+
+  function select(text, el, phraseid, section) {
+    document.getElementById('output').textContent = text;
+    // Lookup phrase in voiceLang
+    let phrase = langMap[voiceLang][section].find(item => item.phraseid === phraseid);
+    let speakText = phrase ? phrase.speak : text;
+    if ('speechSynthesis' in window) {
+      const utterance = new SpeechSynthesisUtterance(speakText);
+      utterance.rate = 0.9;
+      utterance.lang = voiceLang;
+      speechSynthesis.cancel();
+      speechSynthesis.speak(utterance);
+    }
+  }
+
+  function showPage(id, btn) {
+    if (showAll && id !== 'settings') return;
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+  }
+
+  function toggleHighContrast(on) {
+    document.body.classList.toggle('high-contrast', on);
+  }
+
+  function toggleShowAll(on) {
+    showAll = on;
+    document.querySelectorAll('.page').forEach(p => {
+      if (p.id !== 'settings') p.classList.toggle('active', on);
+    });
+  }
+
+  function clearOutput() {
+    document.getElementById('output').textContent = 'Tap a card';
+    if ('speechSynthesis' in window) speechSynthesis.cancel();
+  }
+
+  function renderNavSectionButtons() {
+    const navDiv = document.getElementById('navSectionButtons');
+    navDiv.innerHTML = '';
+    const sections = ['needs', 'feelings', 'pain', 'people', 'activities'];
+    const sectionNames = langMap[menuLang].sectionNames;
+    sections.forEach((section) => {
+      const btn = document.createElement('button');
+      btn.textContent = sectionNames[section] || section;
+      btn.setAttribute('onclick', `showPage('${section}', this)`);
+      if (document.getElementById(section).classList.contains('active')) {
+        btn.className = 'active';
+      }
+      navDiv.appendChild(btn);
+    });
+  }
+
+  // Setup language selectors after DOM loaded
+  window.addEventListener('DOMContentLoaded', () => {
+    const menuLangSelect = document.getElementById('menuLangSelect');
+    const voiceLangSelect = document.getElementById('voiceLangSelect');
+    menuLangSelect.value = menuLang;
+    voiceLangSelect.value = voiceLang;
+    menuLangSelect.onchange = e => {
+      menuLang = e.target.value;
+      renderBoard();
+      clearOutput();
+    };
+    voiceLangSelect.onchange = e => {
+      voiceLang = e.target.value;
+    };
+  });
+  // Initial render
+  renderBoard();
+
+</script>
+
+</body>
+</html>
