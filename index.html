@@ -157,7 +157,6 @@
   <button onclick="showPage('settings', this)">⚙️ Admin</button>
 </nav>
 <nav id="navSectionButtons">
-  <button onclick="showPage('settings', this)">⚙️ Admin</button>
 </nav>
 
 <!-- NEEDS -->
@@ -212,11 +211,26 @@
       <option value="zh-HK">Cantonese Chinese</option>
     </select>
   </div>
+  <div class="setting">
+    <label for="voiceNameSelect">Voice Name:</label>
+    <select id="voiceNameSelect"></select>
+  </div>
+  <div class="setting">
+    <label for="voiceRate">Voice Rate: <span id="voiceRateValue">0.9</span></label>
+    <input type="range" id="voiceRate" min="0.5" max="2" step="0.1" value="0.9" />
+  </div>
+  <div class="setting">
+    <label for="voicePitch">Voice Pitch: <span id="voicePitchValue">1</span></label>
+    <input type="range" id="voicePitch" min="0" max="2" step="0.1" value="1" />
+  </div>
+  <div class="setting">
+    <label for="voiceVolume">Voice Volume: <span id="voiceVolumeValue">1</span></label>
+    <input type="range" id="voiceVolume" min="0" max="1" step="0.1" value="1" />
+  </div>
 </section>
 
 <footer>
-  <div id="output">Tap a card</div>
-  <button onclick="clearOutput()">Clear</button>
+  <div id="output" onclick="clearOutput()">Tap a card</div>
 </footer>
 
 <script>
@@ -465,22 +479,71 @@
     }
   }
 
+  // Voice settings
+  let voiceRate = 0.9;
+  let voicePitch = 1;
+  let voiceVolume = 1;
+  let selectedVoice = null;
+  let voices = [];
+  const allowedLangs = ["en", "zh-CN", "zh-HK", "zh"];
+
+  function populateVoices() {
+    voices = window.speechSynthesis.getVoices();
+    const voiceLangSelect = document.getElementById('voiceLangSelect');
+    const lang = voiceLangSelect.value;
+    const voiceNameSelect = document.getElementById('voiceNameSelect');
+    let filtered = voices.filter(voice => {
+      const langMatch = allowedLangs.some(l => voice.lang.startsWith(l));
+      if (!langMatch) return false;
+      if (lang && !voice.lang.startsWith(lang)) return false;
+      return true;
+    });
+    // fallback: if none, show all matching language
+    if (filtered.length === 0) {
+      filtered = voices.filter(voice => allowedLangs.some(l => voice.lang.startsWith(l)) && (!lang || voice.lang.startsWith(lang)));
+    }
+    voiceNameSelect.innerHTML = '';
+    filtered.forEach((voice, idx) => {
+      const option = document.createElement('option');
+      option.value = idx;
+      option.textContent = `${voice.name} (${voice.lang})`;
+      voiceNameSelect.appendChild(option);
+    });
+    selectedVoice = filtered[voiceNameSelect.selectedIndex] || filtered[0] || null;
+  }
+
   function select(text, el, phraseid, section) {
     document.getElementById('output').textContent = text;
-    // Lookup phrase in voiceLang
     let phrase = langMap[voiceLang][section].find(item => item.phraseid === phraseid);
     let speakText = phrase ? phrase.speak : text;
     if ('speechSynthesis' in window) {
       const utterance = new SpeechSynthesisUtterance(speakText);
-      utterance.rate = 0.9;
+      utterance.rate = voiceRate;
+      utterance.pitch = voicePitch;
+      utterance.volume = voiceVolume;
       utterance.lang = voiceLang;
+      const voiceNameSelect = document.getElementById('voiceNameSelect');
+      const filtered = voices.filter(voice => {
+        const langMatch = allowedLangs.some(l => voice.lang.startsWith(l));
+        if (!langMatch) return false;
+        if (voiceLang && !voice.lang.startsWith(voiceLang)) return false;
+        return true;
+      });
+      const idx = voiceNameSelect.selectedIndex;
+      const voice = filtered[idx] || filtered[0] || null;
+      if (voice) utterance.voice = voice;
       speechSynthesis.cancel();
       speechSynthesis.speak(utterance);
     }
   }
 
   function showPage(id, btn) {
-    if (showAll && id !== 'settings') return;
+    if (showAll && id !== 'settings')
+    {
+      toggleShowAll(true);
+      return;
+    }
+
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     document.getElementById(id).classList.add('active');
     document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
@@ -523,6 +586,13 @@
   window.addEventListener('DOMContentLoaded', () => {
     const menuLangSelect = document.getElementById('menuLangSelect');
     const voiceLangSelect = document.getElementById('voiceLangSelect');
+    const voiceNameSelect = document.getElementById('voiceNameSelect');
+    const rateInput = document.getElementById('voiceRate');
+    const pitchInput = document.getElementById('voicePitch');
+    const volumeInput = document.getElementById('voiceVolume');
+    const rateValue = document.getElementById('voiceRateValue');
+    const pitchValue = document.getElementById('voicePitchValue');
+    const volumeValue = document.getElementById('voiceVolumeValue');
     menuLangSelect.value = menuLang;
     voiceLangSelect.value = voiceLang;
     menuLangSelect.onchange = e => {
@@ -532,7 +602,28 @@
     };
     voiceLangSelect.onchange = e => {
       voiceLang = e.target.value;
+      populateVoices();
     };
+    voiceNameSelect.onchange = () => {
+      selectedVoice = voices[voiceNameSelect.selectedIndex] || null;
+    };
+    rateInput.oninput = e => {
+      voiceRate = parseFloat(e.target.value);
+      rateValue.textContent = voiceRate;
+    };
+    pitchInput.oninput = e => {
+      voicePitch = parseFloat(e.target.value);
+      pitchValue.textContent = voicePitch;
+    };
+    volumeInput.oninput = e => {
+      voiceVolume = parseFloat(e.target.value);
+      volumeValue.textContent = voiceVolume;
+    };
+    // Initial voice population
+    populateVoices();
+    if (window.speechSynthesis.onvoiceschanged !== undefined) {
+      window.speechSynthesis.onvoiceschanged = populateVoices;
+    }
   });
   // Initial render
   renderBoard();
